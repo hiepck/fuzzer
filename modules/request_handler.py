@@ -5,121 +5,93 @@ Request Handler module for the SQL Injection Fuzzer
 
 import time
 import requests
-from requests.exceptions import RequestException
+from requests.exceptions import RequestException, Timeout
 
 
 class RequestHandler:
-    def __init__(self, timeout=10, user_agent=None, cookies=None, proxy=None, delay=0):
-        self.timeout = timeout
-        self.delay = delay
-        self.user_agent = user_agent or "SQLFuzzer/1.0"
-        self.cookies = self._parse_cookies(cookies) if cookies else {}
-        self.proxies = self._setup_proxy(proxy) if proxy else {}
-
-        # Configure requests session
+    def __init__(self, user_agent=None, cookies=None):
         self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': self.user_agent
-        })
 
-        if self.cookies:
-            self.session.cookies.update(self.cookies)
+        # Set user agent
+        if user_agent:
+            self.session.headers.update({'User-Agent': user_agent})
+        else:
+            self.session.headers.update({'User-Agent': 'SQLFuzzer/1.0'})
 
-    def _parse_cookies(self, cookies_str):
-        """
-        Parse cookies string into a dictionary
-
-        Args:
-            cookies_str (str): Cookies in format "name1=value1; name2=value2"
-
-        Returns:
-            dict: Parsed cookies
-        """
-        try:
-            cookies = {}
-            if cookies_str:
-                for cookie in cookies_str.split(';'):
+        # Set cookies
+        if cookies:
+            if isinstance(cookies, str):
+                # Parse cookie string (format: name1=value1; name2=value2)
+                cookie_dict = {}
+                for cookie in cookies.split(';'):
                     if '=' in cookie:
                         name, value = cookie.strip().split('=', 1)
-                        cookies[name] = value
-            return cookies
-        except Exception as e:
-            print(f"[!] Error parsing cookies: {e}")
-            return {}
+                        cookie_dict[name] = value
+                self.session.cookies.update(cookie_dict)
+            elif isinstance(cookies, dict):
+                self.session.cookies.update(cookies)
 
-    def _setup_proxy(self, proxy):
+    def send_request(self, url, method='GET', data=None, headers=None):
         """
-        Setup proxy configuration
-
-        Args:
-            proxy (str): Proxy string in format "http://host:port"
-
-        Returns:
-            dict: Proxy configuration for requests
-        """
-        try:
-            proxies = {
-                'http': proxy,
-                'https': proxy
-            }
-            return proxies
-        except Exception as e:
-            print(f"[!] Error setting up proxy: {e}")
-            return {}
-
-    def send_request(self, url, method="GET", data=None, headers=None):
-        """
-        Send HTTP request to the specified URL
+        Send an HTTP request to the target URL
 
         Args:
             url (str): Target URL
-            method (str, optional): HTTP method. Defaults to "GET".
-            data (dict, optional): POST data. Defaults to None.
-            headers (dict, optional): Additional headers. Defaults to None.
+            method (str, optional): HTTP method (GET or POST)
+            data (dict, optional): Form data for POST requests
+            headers (dict, optional): Additional headers
 
         Returns:
-            requests.Response or None: Response object or None on failure
+            tuple: (response object, request time in seconds) or (None, None) on error
         """
         try:
-            # Apply delay if specified
-            if self.delay > 0:
-                time.sleep(self.delay)
+            start_time = time.time()
 
-            # Set up custom headers if provided
-            request_headers = {}
-            if headers:
-                request_headers.update(headers)
-
-            # Send the request with the appropriate method
-            if method.upper() == "GET":
+            if method.upper() == 'GET':
                 response = self.session.get(
                     url,
-                    headers=request_headers,
-                    proxies=self.proxies,
-                    timeout=self.timeout,
-                    verify=False  # Disable SSL verification
+                    headers=headers
                 )
-            elif method.upper() == "POST":
+            elif method.upper() == 'POST':
                 response = self.session.post(
                     url,
                     data=data,
-                    headers=request_headers,
-                    proxies=self.proxies,
-                    timeout=self.timeout,
-                    verify=False  # Disable SSL verification
+                    headers=headers
                 )
             else:
                 print(f"[!] Unsupported HTTP method: {method}")
-                return None
+                return None, None
 
-            return response
+            request_time = time.time() - start_time
 
+            return response, request_time
+
+        except Timeout:
+            print(f"[!] Request timed out: {url}")
+            return None, 5  # Default timeout value for time-based detection
         except RequestException as e:
-            print(f"[!] Request failed: {e}")
-            return None
+            print(f"[!] Request error: {e}")
+            return None, None
         except Exception as e:
-            print(f"[!] Error sending request: {e}")
-            return None
+            print(f"[!] Unexpected error: {e}")
+            return None, None
+
+    def get_baseline_response(self, url, method='GET', data=None, headers=None):
+        """
+        Get a baseline response for the target URL
+        This is useful for boolean-based detection
+
+        Args:
+            url (str): Target URL
+            method (str, optional): HTTP method (GET or POST)
+            data (dict, optional): Form data for POST requests
+            headers (dict, optional): Additional headers
+
+        Returns:
+            requests.Response: Baseline response
+        """
+        response, _ = self.send_request(url, method, data, headers)
+        return response
 
     def check_connection(self, url):
         """

